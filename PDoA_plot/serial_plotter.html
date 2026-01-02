@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serial Port Data Plotter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        input, select, button {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .disconnect {
+            background: #e74c3c;
+        }
+
+        .disconnect:hover {
+            background: #c0392b;
+        }
+
+        .log-button {
+            background: #27ae60;
+        }
+
+        .log-button:hover {
+            background: #229954;
+        }
+
+        .canvas-container {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 400px;
+            display: block;
+        }
+
+        .status {
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .status.disconnected {
+            background: #fee;
+            color: #c0392b;
+            border: 1px solid #e74c3c;
+        }
+
+        .status.connected {
+            background: #efd;
+            color: #27ae60;
+            border: 1px solid #27ae60;
+        }
+
+        .data-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .log-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 15px;
+            align-items: end;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Serial Port Data Plotter</h1>
+
+        <div class="status disconnected" id="status">Disconnected</div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="baudRate">Baud Rate</label>
+                <select id="baudRate">
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200" selected>115200</option>
+                    <option value="230400">230400</option>
+                    <option value="460800">460800</option>
+                    <option value="921600">921600</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="connectBtn">Connect to Serial Port</button>
+            </div>
+
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button id="disconnectBtn" class="disconnect" disabled>Disconnect</button>
+            </div>
+        </div>
+
+        <div class="data-info">
+            <div class="info-box">
+                <div class="info-label">Current Value</div>
+                <div class="info-value" id="currentValue">--</div>
+            </div>
+            <div class="info-box">
+                <div class="info-label">Min Value</div>
+                <div class="info-value" id="minValue">--</div>
+            </div>
+            <div class="info-box">
+                <div class="info-label">Max Value</div>
+                <div class="info-value" id="maxValue">--</div>
+            </div>
+            <div class="info-box">
+                <div class="info-label">Data Points</div>
+                <div class="info-value" id="dataPoints">0</div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="plotCanvas"></canvas>
+        </div>
+
+        <div class="log-controls">
+            <div class="control-group">
+                <label for="filename">Log Filename</label>
+                <input type="text" id="filename" placeholder="data.csv" value="data.csv">
+            </div>
+            <button id="logBtn" class="log-button">Download Last 100 Points</button>
+        </div>
+    </div>
+
+    <script>
+        // Serial port variables
+        let port = null;
+        let reader = null;
+        let isReading = false;
+
+        // Data storage
+        const dataBuffer = [];
+        const MAX_POINTS = 100;
+        const DATA_INTERVAL = 200; // ms
+
+        // Canvas and plotting
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId = null;
+
+        // UI elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const logBtn = document.getElementById('logBtn');
+        const baudRateSelect = document.getElementById('baudRate');
+        const statusDiv = document.getElementById('status');
+        const currentValueDiv = document.getElementById('currentValue');
+        const minValueDiv = document.getElementById('minValue');
+        const maxValueDiv = document.getElementById('maxValue');
+        const dataPointsDiv = document.getElementById('dataPoints');
+        const filenameInput = document.getElementById('filename');
+
+        // Set canvas size
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Connect to serial port
+        connectBtn.addEventListener('click', async () => {
+            try {
+                // Request serial port
+                port = await navigator.serial.requestPort();
+                const baudRate = parseInt(baudRateSelect.value);
+
+                await port.open({ baudRate });
+
+                statusDiv.textContent = 'Connected';
+                statusDiv.className = 'status connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                baudRateSelect.disabled = true;
+
+                // Start reading data
+                readSerialData();
+
+            } catch (error) {
+                console.error('Error connecting to serial port:', error);
+                alert('Failed to connect to serial port: ' + error.message);
+            }
+        });
+
+        // Disconnect from serial port
+        disconnectBtn.addEventListener('click', async () => {
+            await disconnectSerial();
+        });
+
+        async function disconnectSerial() {
+            isReading = false;
+
+            if (reader) {
+                try {
+                    await reader.cancel();
+                    reader.releaseLock();
+                } catch (error) {
+                    console.error('Error releasing reader:', error);
+                }
+                reader = null;
+            }
+
+            // Give a small delay to ensure the reader is fully released
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            if (port) {
+                try {
+                    await port.close();
+                } catch (error) {
+                    console.error('Error closing port:', error);
+                }
+                port = null;
+            }
+
+            statusDiv.textContent = 'Disconnected';
+            statusDiv.className = 'status disconnected';
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            baudRateSelect.disabled = false;
+        }
+
+        // Read serial data
+        async function readSerialData() {
+            isReading = true;
+            let buffer = '';
+
+            try {
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
+
+                while (isReading) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+
+                    buffer += value;
+
+                    // Process complete lines
+                    let lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (line) {
+                            const floatValue = parseFloat(line);
+                            if (!isNaN(floatValue)) {
+                                addDataPoint(floatValue);
+                            }
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error reading serial data:', error);
+                if (isReading) {
+                    alert('Error reading serial data: ' + error.message);
+                    await disconnectSerial();
+                }
+            }
+        }
+
+        // Add data point to buffer
+        function addDataPoint(value) {
+            const timestamp = Date.now();
+            dataBuffer.push({ value, timestamp });
+
+            // Keep only last 100 points
+            if (dataBuffer.length > MAX_POINTS) {
+                dataBuffer.shift();
+            }
+
+            updateStats();
+        }
+
+        // Update statistics display
+        function updateStats() {
+            if (dataBuffer.length === 0) {
+                currentValueDiv.textContent = '--';
+                minValueDiv.textContent = '--';
+                maxValueDiv.textContent = '--';
+                dataPointsDiv.textContent = '0';
+                return;
+            }
+
+            const current = dataBuffer[dataBuffer.length - 1].value;
+            const values = dataBuffer.map(d => d.value);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+
+            currentValueDiv.textContent = current.toFixed(2);
+            minValueDiv.textContent = min.toFixed(2);
+            maxValueDiv.textContent = max.toFixed(2);
+            dataPointsDiv.textContent = dataBuffer.length;
+        }
+
+        // Plot data on canvas
+        function plotData() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            if (dataBuffer.length === 0) {
+                // Draw empty state
+                ctx.fillStyle = '#999';
+                ctx.font = '16px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Waiting for data...', width / 2, height / 2);
+                return;
+            }
+
+            // Calculate scales
+            const values = dataBuffer.map(d => d.value);
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            const range = maxVal - minVal || 1;
+
+            const padding = 50;
+            const plotWidth = width - 2 * padding;
+            const plotHeight = height - 2 * padding;
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, height - padding);
+            ctx.lineTo(width - padding, height - padding);
+            ctx.stroke();
+
+            // Draw grid
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (plotHeight * i / 5);
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+
+                // Y-axis labels
+                const value = maxVal - (range * i / 5);
+                ctx.fillStyle = '#666';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(value.toFixed(2), padding - 10, y + 4);
+            }
+
+            // Draw data line
+            if (dataBuffer.length > 1) {
+                ctx.strokeStyle = '#667eea';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                dataBuffer.forEach((point, index) => {
+                    const x = padding + (plotWidth * index / (MAX_POINTS - 1));
+                    const y = height - padding - ((point.value - minVal) / range * plotHeight);
+
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+
+                ctx.stroke();
+
+                // Draw data points
+                ctx.fillStyle = '#667eea';
+                dataBuffer.forEach((point, index) => {
+                    const x = padding + (plotWidth * index / (MAX_POINTS - 1));
+                    const y = height - padding - ((point.value - minVal) / range * plotHeight);
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+
+            // X-axis label
+            ctx.fillStyle = '#666';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Sample Number (0-100)', width / 2, height - 10);
+
+            // Y-axis label
+            ctx.save();
+            ctx.translate(15, height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('Value', 0, 0);
+            ctx.restore();
+        }
+
+        // Animation loop for plotting
+        function animate() {
+            plotData();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // Download data log
+        logBtn.addEventListener('click', () => {
+            if (dataBuffer.length === 0) {
+                alert('No data to log!');
+                return;
+            }
+
+            // Get last 100 points (or all if less than 100)
+            const dataToLog = dataBuffer.slice(-100);
+
+            // Create CSV content
+            let csvContent = 'Timestamp,Value\n';
+            dataToLog.forEach(point => {
+                csvContent += `${new Date(point.timestamp).toISOString()},${point.value}\n`;
+            });
+
+            // Create blob and download
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filenameInput.value || 'data.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert(`Downloaded ${dataToLog.length} data points to ${a.download}`);
+        });
+
+        // Check if Web Serial API is supported
+        if (!('serial' in navigator)) {
+            alert('Web Serial API is not supported in this browser. Please use Chrome, Edge, or Opera.');
+            connectBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
