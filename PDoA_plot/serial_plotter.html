@@ -435,11 +435,11 @@
                 return;
             }
 
-            // Calculate scales
+            // Calculate scales with fixed y-axis range
             const values = dataBuffer.map(d => d.value);
-            const minVal = Math.min(...values);
-            const maxVal = Math.max(...values);
-            const range = maxVal - minVal || 1;
+            const minVal = -180;
+            const maxVal = 180;
+            const range = 360;
 
             const padding = 50;
             const plotWidth = width - 2 * padding;
@@ -454,22 +454,29 @@
             ctx.lineTo(width - padding, height - padding);
             ctx.stroke();
 
-            // Draw grid
-            ctx.strokeStyle = '#ddd';
-            ctx.lineWidth = 1;
-            for (let i = 0; i <= 5; i++) {
-                const y = padding + (plotHeight * i / 5);
+            // Draw grid every 20 degrees
+            for (let deg = -180; deg <= 180; deg += 20) {
+                const y = padding + plotHeight * (1 - (deg - minVal) / range);
+
+                // Make 0 degree line more prominent
+                if (deg === 0) {
+                    ctx.strokeStyle = '#999';
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.strokeStyle = '#ddd';
+                    ctx.lineWidth = 1;
+                }
+
                 ctx.beginPath();
                 ctx.moveTo(padding, y);
                 ctx.lineTo(width - padding, y);
                 ctx.stroke();
 
                 // Y-axis labels
-                const value = maxVal - (range * i / 5);
                 ctx.fillStyle = '#666';
                 ctx.font = '12px sans-serif';
                 ctx.textAlign = 'right';
-                ctx.fillText(value.toFixed(2), padding - 10, y + 4);
+                ctx.fillText(deg + '°', padding - 10, y + 4);
             }
 
             // Draw data line
