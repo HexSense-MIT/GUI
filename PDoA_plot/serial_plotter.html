@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1600px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -111,12 +111,25 @@
             background: #229954;
         }
 
+        .plots-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
         .canvas-container {
             background: #fff;
             border: 2px solid #ddd;
             border-radius: 8px;
             padding: 15px;
-            margin-bottom: 20px;
+        }
+
+        .canvas-container h2 {
+            font-size: 18px;
+            color: #555;
+            margin-bottom: 10px;
+            text-align: center;
         }
 
         canvas {
@@ -230,8 +243,15 @@
             </div>
         </div>
 
-        <div class="canvas-container">
-            <canvas id="plotCanvas"></canvas>
+        <div class="plots-container">
+            <div class="canvas-container">
+                <h2>Time Series Plot</h2>
+                <canvas id="plotCanvas"></canvas>
+            </div>
+            <div class="canvas-container">
+                <h2>Radiation Pattern</h2>
+                <canvas id="polarCanvas"></canvas>
+            </div>
         </div>
 
         <div class="log-controls">
@@ -254,9 +274,15 @@
         const MAX_POINTS = 100;
         const DATA_INTERVAL = 200; // ms
 
+        // Low-pass filter for radiation pattern
+        let filteredAngle = null;
+        const FILTER_ALPHA = 0.15; // Lower = smoother (0-1 range)
+
         // Canvas and plotting
         const canvas = document.getElementById('plotCanvas');
         const ctx = canvas.getContext('2d');
+        const polarCanvas = document.getElementById('polarCanvas');
+        const polarCtx = polarCanvas.getContext('2d');
         let animationId = null;
 
         // UI elements
@@ -277,6 +303,11 @@
             canvas.width = rect.width * window.devicePixelRatio;
             canvas.height = rect.height * window.devicePixelRatio;
             ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const polarRect = polarCanvas.getBoundingClientRect();
+            polarCanvas.width = polarRect.width * window.devicePixelRatio;
+            polarCanvas.height = polarRect.height * window.devicePixelRatio;
+            polarCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
         }
 
         resizeCanvas();
@@ -384,10 +415,35 @@
             }
         }
 
+        // Low-pass filter using exponential smoothing with angle wrapping
+        function filterAngle(newAngle) {
+            if (filteredAngle === null) {
+                filteredAngle = newAngle;
+                return newAngle;
+            }
+
+            // Handle angle wrapping around -180/180 boundary
+            let diff = newAngle - filteredAngle;
+
+            // Normalize the difference to be in range [-180, 180]
+            while (diff > 180) diff -= 360;
+            while (diff < -180) diff += 360;
+
+            // Apply exponential smoothing
+            filteredAngle = filteredAngle + FILTER_ALPHA * diff;
+
+            // Keep angle in range [-180, 180]
+            while (filteredAngle > 180) filteredAngle -= 360;
+            while (filteredAngle < -180) filteredAngle += 360;
+
+            return filteredAngle;
+        }
+
         // Add data point to buffer
         function addDataPoint(value) {
             const timestamp = Date.now();
-            dataBuffer.push({ value, timestamp });
+            const filtered = filterAngle(value);
+            dataBuffer.push({ value, timestamp, filtered });
 
             // Keep only last 100 points
             if (dataBuffer.length > MAX_POINTS) {
@@ -525,9 +581,140 @@
             ctx.restore();
         }
 
+        // Plot polar radiation pattern
+        function plotPolarPattern() {
+            const width = polarCanvas.width / window.devicePixelRatio;
+            const height = polarCanvas.height / window.devicePixelRatio;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const radius = Math.min(width, height) / 2 - 60;
+
+            // Clear canvas
+            polarCtx.clearRect(0, 0, width, height);
+
+            if (dataBuffer.length === 0) {
+                // Draw empty state
+                polarCtx.fillStyle = '#999';
+                polarCtx.font = '16px sans-serif';
+                polarCtx.textAlign = 'center';
+                polarCtx.fillText('Waiting for data...', centerX, centerY);
+                return;
+            }
+
+            // Draw concentric circles (0° to 180° range)
+            polarCtx.strokeStyle = '#ddd';
+            polarCtx.lineWidth = 1;
+            for (let i = 1; i <= 4; i++) {
+                polarCtx.beginPath();
+                polarCtx.arc(centerX, centerY, (radius * i) / 4, 0, 2 * Math.PI);
+                polarCtx.stroke();
+            }
+
+            // Draw angle lines (-180° to 180°)
+            for (let angle = -180; angle <= 180; angle += 30) {
+                const rad = (angle * Math.PI) / 180;
+                polarCtx.beginPath();
+                polarCtx.moveTo(centerX, centerY);
+                polarCtx.lineTo(
+                    centerX + radius * Math.cos(rad - Math.PI / 2),
+                    centerY + radius * Math.sin(rad - Math.PI / 2)
+                );
+                polarCtx.stroke();
+
+                // Draw angle labels
+                const labelRadius = radius + 25;
+                const labelX = centerX + labelRadius * Math.cos(rad - Math.PI / 2);
+                const labelY = centerY + labelRadius * Math.sin(rad - Math.PI / 2);
+                polarCtx.fillStyle = '#666';
+                polarCtx.font = '12px sans-serif';
+                polarCtx.textAlign = 'center';
+                polarCtx.textBaseline = 'middle';
+                polarCtx.fillText(angle + '°', labelX, labelY);
+            }
+
+            // Draw outer circle
+            polarCtx.strokeStyle = '#333';
+            polarCtx.lineWidth = 2;
+            polarCtx.beginPath();
+            polarCtx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            polarCtx.stroke();
+
+            // Get the last 50 points or all if less than 50
+            const recentData = dataBuffer.slice(-50);
+
+            // Draw radiation pattern based on angle data
+            polarCtx.fillStyle = 'rgba(102, 126, 234, 0.3)';
+            polarCtx.strokeStyle = '#667eea';
+            polarCtx.lineWidth = 2;
+            polarCtx.beginPath();
+
+            recentData.forEach((point, index) => {
+                // Convert angle (-180 to 180) to radians - use filtered value
+                const angleDeg = point.filtered;
+                const angleRad = (angleDeg * Math.PI) / 180 - Math.PI / 2;
+
+                // Map to radius - use a fixed radius for all points (uniform radiation)
+                // You can modify this to use intensity if you have that data
+                const r = radius * 0.9;
+
+                const x = centerX + r * Math.cos(angleRad);
+                const y = centerY + r * Math.sin(angleRad);
+
+                if (index === 0) {
+                    polarCtx.moveTo(x, y);
+                } else {
+                    polarCtx.lineTo(x, y);
+                }
+            });
+
+            polarCtx.stroke();
+
+            // Draw the most recent angle with a marker (use filtered value)
+            if (dataBuffer.length > 0) {
+                const lastPoint = dataBuffer[dataBuffer.length - 1];
+                const angleDeg = lastPoint.filtered;
+                const angleRad = (angleDeg * Math.PI) / 180 - Math.PI / 2;
+                const r = radius * 0.9;
+                const x = centerX + r * Math.cos(angleRad);
+                const y = centerY + r * Math.sin(angleRad);
+
+                // Draw direction line
+                polarCtx.strokeStyle = '#e74c3c';
+                polarCtx.lineWidth = 3;
+                polarCtx.beginPath();
+                polarCtx.moveTo(centerX, centerY);
+                polarCtx.lineTo(x, y);
+                polarCtx.stroke();
+
+                // Draw current angle marker
+                polarCtx.fillStyle = '#e74c3c';
+                polarCtx.beginPath();
+                polarCtx.arc(x, y, 6, 0, 2 * Math.PI);
+                polarCtx.fill();
+
+                // Draw angle label (show both raw and filtered)
+                polarCtx.fillStyle = '#333';
+                polarCtx.font = 'bold 16px sans-serif';
+                polarCtx.textAlign = 'center';
+                polarCtx.fillText(angleDeg.toFixed(1) + '°', centerX, centerY + 20);
+
+                // Show raw value in smaller text
+                polarCtx.font = '12px sans-serif';
+                polarCtx.fillStyle = '#999';
+                polarCtx.fillText('(raw: ' + lastPoint.value.toFixed(1) + '°)', centerX, centerY + 38);
+            }
+
+            // Draw title
+            polarCtx.fillStyle = '#333';
+            polarCtx.font = 'bold 14px sans-serif';
+            polarCtx.textAlign = 'center';
+            polarCtx.fillText('Measured Angle Direction', centerX, 25);
+        }
+
         // Animation loop for plotting
         function animate() {
             plotData();
+            plotPolarPattern();
             animationId = requestAnimationFrame(animate);
         }
 
