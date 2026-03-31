@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Serial Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #2d2d30;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            color: #569cd6;
+            margin-right: auto;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            color: #cccccc;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:disabled {
+            background: #3e3e42;
+            cursor: not-allowed;
+        }
+
+        button.disconnect {
+            background: #c72e0f;
+        }
+
+        button.disconnect:hover {
+            background: #e13b1a;
+        }
+
+        select, input[type="number"], input[type="text"] {
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #555;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .settings-panel {
+            background: #252526;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: none;
+        }
+
+        .settings-panel.active {
+            display: block;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting-item label {
+            font-size: 12px;
+            color: #cccccc;
+            font-weight: 500;
+        }
+
+        input[type="color"] {
+            width: 100%;
+            height: 35px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .monitor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1e1e1e;
+        }
+
+        .monitor-controls {
+            background: #252526;
+            padding: 10px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .monitor-output {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            background: #1e1e1e;
+        }
+
+        .monitor-output.theme-dark {
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .monitor-output.theme-light {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .monitor-output.theme-terminal {
+            background: #000000;
+            color: #00ff00;
+        }
+
+        .log-line {
+            margin-bottom: 4px;
+            word-wrap: break-word;
+        }
+
+        .log-line.error {
+            color: #f48771;
+            font-weight: bold;
+        }
+
+        .log-line.warning {
+            color: #dcdcaa;
+        }
+
+        .log-line.info {
+            color: #4ec9b0;
+        }
+
+        .log-line.debug {
+            color: #9cdcfe;
+        }
+
+        .timestamp {
+            color: #858585;
+            margin-right: 8px;
+            font-size: 12px;
+        }
+
+        .input-area {
+            background: #252526;
+            padding: 15px 20px;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-area input {
+            flex: 1;
+        }
+
+        .status-bar {
+            background: #007acc;
+            color: white;
+            padding: 6px 20px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-indicator.connected {
+            background: #4ec9b0;
+        }
+
+        .status-indicator.disconnected {
+            background: #f48771;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-size: 11px;
+        }
+
+        /* Scrollbar styling */
+        .monitor-output::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .monitor-output::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        .monitor-output::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 5px;
+        }
+
+        .monitor-output::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        .theme-presets {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .theme-preset {
+            padding: 6px 12px;
+            background: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .theme-preset:hover {
+            background: #4c4c4c;
+            border-color: #007acc;
+        }
+
+        .theme-preset.active {
+            background: #007acc;
+            border-color: #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ESP32 Serial Monitor</h1>
+
+        <div class="control-group">
+            <label>Baud Rate:</label>
+            <select id="baudRate">
+                <option value="9600">9600</option>
+                <option value="19200">19200</option>
+                <option value="38400">38400</option>
+                <option value="57600">57600</option>
+                <option value="115200" selected>115200</option>
+                <option value="230400">230400</option>
+                <option value="460800">460800</option>
+                <option value="921600">921600</option>
+            </select>
+        </div>
+
+        <button id="connectBtn">Connect</button>
+        <button id="disconnectBtn" class="disconnect" disabled>Disconnect</button>
+        <button id="settingsBtn">Settings</button>
+        <button id="clearBtn">Clear</button>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+        <h3 style="margin-bottom: 15px;">Display Settings</h3>
+
+        <div class="theme-presets">
+            <div class="theme-preset active" data-theme="dark">Dark Theme</div>
+            <div class="theme-preset" data-theme="light">Light Theme</div>
+            <div class="theme-preset" data-theme="terminal">Terminal</div>
+        </div>
+
+        <div class="settings-grid">
+            <div class="setting-item">
+                <label>Font Size: <span id="fontSizeValue">14</span>px</label>
+                <input type="range" id="fontSize" min="10" max="24" value="14">
+            </div>
+
+            <div class="setting-item">
+                <label>Line Height: <span id="lineHeightValue">1.6</span></label>
+                <input type="range" id="lineHeight" min="1.0" max="2.5" step="0.1" value="1.6">
+            </div>
+
+            <div class="setting-item">
+                <label>Normal Text Color</label>
+                <input type="color" id="normalColor" value="#d4d4d4">
+            </div>
+
+            <div class="setting-item">
+                <label>Error Text Color</label>
+                <input type="color" id="errorColor" value="#f48771">
+            </div>
+
+            <div class="setting-item">
+                <label>Warning Text Color</label>
+                <input type="color" id="warningColor" value="#dcdcaa">
+            </div>
+
+            <div class="setting-item">
+                <label>Info Text Color</label>
+                <input type="color" id="infoColor" value="#4ec9b0">
+            </div>
+
+            <div class="setting-item">
+                <label>Debug Text Color</label>
+                <input type="color" id="debugColor" value="#9cdcfe">
+            </div>
+
+            <div class="setting-item">
+                <label>Background Color</label>
+                <input type="color" id="bgColor" value="#1e1e1e">
+            </div>
+
+            <div class="setting-item">
+                <label>Max Lines (0 = unlimited)</label>
+                <input type="number" id="maxLines" min="0" max="10000" value="1000">
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="monitor-container">
+            <div class="monitor-controls">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="autoScroll" checked>
+                    <label for="autoScroll">Auto-scroll</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showTimestamp" checked>
+                    <label for="showTimestamp">Timestamps</label>
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="hexMode">
+                    <label for="hexMode">HEX Mode</label>
+                </div>
+                <div class="control-group" style="margin-left: auto;">
+                    <label>Filter:</label>
+                    <input type="text" id="filterInput" placeholder="Filter output...">
+                </div>
+            </div>
+
+            <div class="monitor-output theme-dark" id="monitorOutput">
+                <div class="log-line info">Serial Monitor Ready. Click "Connect" to start.</div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="sendInput" placeholder="Type data to send..." disabled>
+                <select id="lineEnding">
+                    <option value="">No line ending</option>
+                    <option value="\n">Newline (\n)</option>
+                    <option value="\r">Carriage return (\r)</option>
+                    <option value="\r\n" selected>Both NL & CR (\r\n)</option>
+                </select>
+                <button id="sendBtn" disabled>Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div>
+            <span class="status-indicator disconnected" id="statusIndicator"></span>
+            <span id="statusText">Disconnected</span>
+        </div>
+        <div class="stats">
+            <span>RX: <span id="rxBytes">0</span> bytes</span>
+            <span>TX: <span id="txBytes">0</span> bytes</span>
+            <span>Lines: <span id="lineCount">0</span></span>
+        </div>
+    </div>
+
+    <script src="serial-monitor.js"></script>
+</body>
+</html>

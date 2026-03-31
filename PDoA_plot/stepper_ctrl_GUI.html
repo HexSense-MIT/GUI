@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Stepper Motor Control</title>
+    <style>
+        :root {
+            --primary: #1976d2;
+            --primary-light: #e3f2fd;
+            --success: #2e7d32;
+            --error: #c62828;
+            --border: #d0d7de;
+            --bg: #E3E6EB;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 50%;
+            margin: auto;
+            background: var(--card);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        label {
+            min-width: 90px;
+            font-weight: 500;
+        }
+
+        input[type="number"] {
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.15);
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            transition: transform 0.05s ease, box-shadow 0.15s ease, background 0.15s;
+            box-shadow: 0 4px 10px rgba(25, 118, 210, 0.25);
+        }
+
+        button:hover:not(:disabled) {
+            background: #1565c0;
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: 0 2px 6px rgba(25, 118, 210, 0.3);
+        }
+
+        button:disabled {
+            background: #b0bec5;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .secondary {
+            background: #374151;
+            color: white;
+            box-shadow: none;
+        }
+
+        .secondary:hover:not(:disabled) {
+            background: #4B5563;
+        }
+
+        #status {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-weight: 500;
+            background: #eee;
+            color: var(--muted);
+        }
+
+        .status-connected {
+            background: #e8f5e9;
+            color: var(--success);
+        }
+
+        .status-error {
+            background: #fdecea;
+            color: var(--error);
+        }
+
+        .panel {
+            padding: 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #fafafa;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 13px;
+        }
+
+        #sentData {
+            background: var(--primary-light);
+            border-color: var(--primary);
+        }
+
+        #log {
+            max-height: 260px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px dashed #ddd;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .timestamp {
+            color: var(--muted);
+            margin-right: 6px;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <h1>Stepper Motor Control</h1>
+
+    <div class="section">
+        <div class="input-row">
+            <label for="degrees">Degrees</label>
+            <input type="number" id="degrees" value="90" step="any">
+        </div>
+    </div>
+
+    <div class="section button-row">
+        <button id="connectBtn">Connect</button>
+        <button id="sendBtn" disabled>Send</button>
+        <button id="clearLogBtn" class="secondary">Clear Log</button>
+    </div>
+
+    <div class="section">
+        <span id="status">Not connected</span>
+    </div>
+
+    <div class="section panel" id="sentData"></div>
+
+    <div class="section panel" id="log"></div>
+</div>
+
+<script>
+    // === JS unchanged except small class toggles ===
+    let port;
+    let writer;
+    const STEPS_PER_REV = 1600;
+    let sendCount = 0;
+    let cumulativeDegrees = 0;
+    let cumulativeSteps = 0;
+
+    function addToLog(message) {
+        const logDiv = document.getElementById("log");
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        const ts = new Date().toLocaleTimeString();
+        entry.innerHTML = `<span class="timestamp">[${ts}]</span>${message}`;
+        logDiv.appendChild(entry);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    async function connect() {
+        try {
+            addToLog("Requesting serial port...");
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+            writer = port.writable.getWriter();
+
+            const status = document.getElementById("status");
+            status.textContent = "Connected";
+            status.className = "status-connected";
+
+            document.getElementById("sendBtn").disabled = false;
+            document.getElementById("connectBtn").disabled = true;
+
+            addToLog("<strong>✓ Connected to ESP32</strong>");
+        } catch (err) {
+            const status = document.getElementById("status");
+            status.textContent = "Connection failed";
+            status.className = "status-error";
+            addToLog(`<strong>✗ ${err.message}</strong>`);
+        }
+    }
+
+    async function sendDegrees() {
+        const deg = parseFloat(document.getElementById("degrees").value);
+        if (!writer || isNaN(deg)) return;
+
+        const dirByte = deg >= 0 ? 0x00 : 0xFF;
+        cumulativeDegrees += deg;
+
+        const targetSteps = Math.round(cumulativeDegrees * STEPS_PER_REV / 360);
+        let steps = Math.abs(targetSteps - cumulativeSteps);
+        cumulativeSteps = targetSteps;
+
+        steps = Math.min(steps, 0xFFFF);
+        const data = new Uint8Array([dirByte, (steps >> 8) & 0xFF, steps & 0xFF]);
+
+        await writer.write(data);
+        sendCount++;
+
+        document.getElementById("sentData").innerHTML =
+            `<strong>Last Command</strong><br>
+             Degrees: ${deg}°<br>
+             Steps: ${steps}<br>
+             Bytes: ${Array.from(data).map(b => "0x" + b.toString(16).padStart(2,"0")).join(" ")}`;
+
+        addToLog(`#${sendCount} Sent ${deg}° → ${steps} steps`);
+    }
+
+    function clearLog() {
+        document.getElementById("log").innerHTML = "";
+        sendCount = 0;
+        addToLog("Log cleared");
+    }
+
+    document.getElementById("connectBtn").onclick = connect;
+    document.getElementById("sendBtn").onclick = sendDegrees;
+    document.getElementById("clearLogBtn").onclick = clearLog;
+
+    addToLog(`Ready — ${STEPS_PER_REV} steps/rev`);
+</script>
+</body>
+</html>

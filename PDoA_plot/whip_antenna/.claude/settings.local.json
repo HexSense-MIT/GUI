@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/liufangzheng/Documents/Lab/github/HexSense_MIT/GUI/PDoA_plot/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
