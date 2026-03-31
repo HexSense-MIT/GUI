@@ -549,12 +549,16 @@ class SerialMonitor {
     }
 }
 
-// Initialize the application
-const monitor = new SerialMonitor();
+// Initialize the application when DOM is ready
+let monitor;
+
+document.addEventListener('DOMContentLoaded', () => {
+    monitor = new SerialMonitor();
+});
 
 // Handle page unload
 window.addEventListener('beforeunload', async () => {
-    if (monitor.port) {
+    if (monitor && monitor.port) {
         await monitor.disconnect();
     }
 });
