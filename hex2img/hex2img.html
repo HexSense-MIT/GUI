@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hex to JPEG Converter</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: #a8d8ea;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #537ec5;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      border-radius: 8px;
+      color: #a8e6cf;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: #537ec5;
+    }
+
+    textarea::placeholder {
+      color: #3a5068;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 9px 22px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-primary {
+      background: #537ec5;
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+    .btn-secondary {
+      background: #0f3460;
+      color: #a8d8ea;
+    }
+
+    .btn-secondary:hover:not(:disabled) { opacity: 0.8; }
+
+    .btn-danger {
+      background: #7b2d2d;
+      color: #fca5a5;
+    }
+
+    .btn-danger:hover:not(:disabled) { opacity: 0.8; }
+
+    .status {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      min-height: 20px;
+      padding: 4px 0;
+    }
+
+    .status.ok   { color: #6ee7b7; }
+    .status.err  { color: #f87171; }
+    .status.info { color: #93c5fd; }
+
+    .preview-area {
+      text-align: center;
+    }
+
+    .preview-area img {
+      max-width: 100%;
+      max-height: 480px;
+      border-radius: 8px;
+      border: 1px solid #0f3460;
+      display: none;
+    }
+
+    .placeholder-box {
+      width: 100%;
+      height: 180px;
+      border: 2px dashed #0f3460;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3a5068;
+      font-size: 0.9rem;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .stat {
+      background: #0d1b2a;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.78rem;
+    }
+
+    .stat-label { color: #537ec5; margin-bottom: 2px; }
+    .stat-value { color: #e0e0e0; font-weight: 600; }
+
+    .drop-zone {
+      width: 100%;
+      min-height: 100px;
+      border: 2px dashed #537ec5;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 20px;
+      transition: background 0.2s, border-color 0.2s;
+      text-align: center;
+      color: #537ec5;
+      font-size: 0.9rem;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      background: #0d1b2a;
+      border-color: #a8d8ea;
+      color: #a8d8ea;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Hex ↔ JPEG Converter</h1>
+  <p class="subtitle">Convert between hex strings and JPEG images</p>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="card-title">Hex Input</div>
+    <textarea id="hexInput" placeholder="Paste hex string here…  e.g. FFD8FFE0...FFD9&#10;Spaces, newlines, and 0x prefixes are stripped automatically."></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="convert()">Convert to Image</button>
+      <button class="btn-secondary" onclick="loadFile()">Load .hex / .txt File</button>
+      <button class="btn-danger" onclick="clearAll()">Clear</button>
+    </div>
+    <div id="status" class="status info">Waiting for input…</div>
+  </div>
+
+  <!-- Preview card -->
+  <div class="card">
+    <div class="card-title">Image Preview</div>
+    <div class="preview-area">
+      <div class="placeholder-box" id="placeholder">Image will appear here</div>
+      <img id="previewImg" alt="Decoded JPEG">
+    </div>
+    <div class="stats" id="statsRow" style="display:none">
+      <div class="stat"><div class="stat-label">Hex chars</div><div class="stat-value" id="statHex">—</div></div>
+      <div class="stat"><div class="stat-label">Bytes</div><div class="stat-value" id="statBytes">—</div></div>
+      <div class="stat"><div class="stat-label">Dimensions</div><div class="stat-value" id="statDim">—</div></div>
+      <div class="stat"><div class="stat-label">JPEG marker</div><div class="stat-value" id="statMarker">—</div></div>
+    </div>
+    <div class="btn-row" id="downloadRow" style="display:none; margin-top:14px">
+      <button class="btn-primary" onclick="downloadImage()">Download JPEG</button>
+    </div>
+  </div>
+
+  <!-- JPEG → Hex card -->
+  <div class="card">
+    <div class="card-title">JPEG → Hex String</div>
+
+    <!-- Drop zone -->
+    <div id="dropZone" class="drop-zone" onclick="document.getElementById('jpegFileInput').click()">
+      <div id="dropZoneText">Click or drag &amp; drop a JPEG / JPG file here</div>
+      <img id="jpegPreview" alt="JPEG preview" style="display:none; max-width:100%; max-height:260px; border-radius:6px; margin-top:12px;">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="document.getElementById('jpegFileInput').click()">Choose JPEG File</button>
+      <button class="btn-danger" onclick="clearJpeg2Hex()">Clear</button>
+    </div>
+    <div id="j2hStatus" class="status info">No file loaded.</div>
+
+    <!-- Hex output -->
+    <div id="j2hOutputWrap" style="display:none; margin-top:16px;">
+      <div class="card-title" style="margin-bottom:6px;">Hex Output</div>
+      <textarea id="j2hHexOutput" readonly style="height:140px; color:#fde68a;"></textarea>
+      <div class="stats" style="margin-top:10px;">
+        <div class="stat"><div class="stat-label">File size</div><div class="stat-value" id="j2hStatSize">—</div></div>
+        <div class="stat"><div class="stat-label">Hex chars</div><div class="stat-value" id="j2hStatChars">—</div></div>
+        <div class="stat"><div class="stat-label">Filename</div><div class="stat-value" id="j2hStatName">—</div></div>
+      </div>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-primary" onclick="copyHex()">Copy Hex to Clipboard</button>
+        <button class="btn-secondary" onclick="sendToInput()">Send to Hex Input ↑</button>
+        <button class="btn-secondary" onclick="downloadHex()">Download .hex File</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden file inputs -->
+  <input type="file" id="fileInput" accept=".hex,.txt,.bin" style="display:none" onchange="handleFile(event)">
+  <input type="file" id="jpegFileInput" accept="image/jpeg,image/jpg,.jpg,.jpeg" style="display:none" onchange="handleJpegFile(event)">
+
+  <script>
+    let currentObjectURL = null;
+
+    function setStatus(msg, type = 'info') {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+
+    function sanitizeHex(raw) {
+      // Remove 0x prefixes, spaces, newlines, colons, commas
+      return raw.replace(/0x/gi, '').replace(/[\s:,\r\n]/g, '');
+    }
+
+    function hexToUint8Array(hex) {
+      if (hex.length % 2 !== 0) throw new Error(`Odd hex length (${hex.length} chars) — check your input.`);
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < hex.length; i += 2) {
+        const byte = parseInt(hex.substring(i, i + 2), 16);
+        if (isNaN(byte)) throw new Error(`Invalid hex characters at position ${i}: "${hex.substring(i, i + 2)}"`);
+        bytes[i / 2] = byte;
+      }
+      return bytes;
+    }
+
+    function convert() {
+      const raw = document.getElementById('hexInput').value.trim();
+      if (!raw) { setStatus('Input is empty.', 'err'); return; }
+
+      setStatus('Processing…', 'info');
+
+      // Give the browser a tick to render the status update
+      setTimeout(() => {
+        try {
+          const hex = sanitizeHex(raw);
+
+          if (hex.length < 4) throw new Error('Hex string too short.');
+
+          // Validate JPEG magic bytes FFD8
+          if (!hex.toUpperCase().startsWith('FFD8')) {
+            setStatus('Warning: does not start with FFD8 — may not be a valid JPEG.', 'err');
+          }
+
+          const bytes = hexToUint8Array(hex);
+          const blob = new Blob([bytes], { type: 'image/jpeg' });
+
+          // Revoke previous URL to avoid memory leak
+          if (currentObjectURL) URL.revokeObjectURL(currentObjectURL);
+          currentObjectURL = URL.createObjectURL(blob);
+
+          const img = document.getElementById('previewImg');
+          img.onload = () => {
+            document.getElementById('placeholder').style.display = 'none';
+            img.style.display = 'block';
+
+            // Update stats
+            document.getElementById('statHex').textContent = hex.length.toLocaleString();
+            document.getElementById('statBytes').textContent = bytes.length.toLocaleString();
+            document.getElementById('statDim').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`;
+            document.getElementById('statMarker').textContent = hex.substring(0, 8).toUpperCase() + '…';
+            document.getElementById('statsRow').style.display = 'flex';
+            document.getElementById('downloadRow').style.display = 'flex';
+            setStatus(`Success — decoded ${bytes.length.toLocaleString()} bytes into a ${img.naturalWidth}×${img.naturalHeight} image.`, 'ok');
+          };
+          img.onerror = () => {
+            img.style.display = 'none';
+            document.getElementById('placeholder').style.display = 'flex';
+            setStatus('Browser could not decode the bytes as JPEG. Check that the hex is a complete, valid JPEG.', 'err');
+          };
+          img.src = currentObjectURL;
+
+        } catch (e) {
+          setStatus(e.message, 'err');
+        }
+      }, 10);
+    }
+
+    function downloadImage() {
+      if (!currentObjectURL) return;
+      const a = document.createElement('a');
+      a.href = currentObjectURL;
+      a.download = 'decoded_image.jpg';
+      a.click();
+    }
+
+    function clearAll() {
+      document.getElementById('hexInput').value = '';
+      const img = document.getElementById('previewImg');
+      img.src = '';
+      img.style.display = 'none';
+      document.getElementById('placeholder').style.display = 'flex';
+      document.getElementById('statsRow').style.display = 'none';
+      document.getElementById('downloadRow').style.display = 'none';
+      if (currentObjectURL) { URL.revokeObjectURL(currentObjectURL); currentObjectURL = null; }
+      setStatus('Waiting for input…', 'info');
+    }
+
+    function loadFile() {
+      document.getElementById('fileInput').click();
+    }
+
+    function handleFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      setStatus(`Reading "${file.name}"…`, 'info');
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('hexInput').value = e.target.result;
+        setStatus(`Loaded "${file.name}" (${file.size.toLocaleString()} bytes). Press Convert.`, 'ok');
+      };
+      reader.onerror = () => setStatus('Failed to read file.', 'err');
+      reader.readAsText(file);
+      // Reset so the same file can be re-loaded
+      event.target.value = '';
+    }
+
+    // Allow Ctrl+Enter to convert
+    document.getElementById('hexInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) convert();
+    });
+
+    // ── JPEG → Hex ───────────────────────────────────────────────────────────
+
+    let currentHexString = '';
+
+    function setJ2HStatus(msg, type = 'info') {
+      const el = document.getElementById('j2hStatus');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+
+    function handleJpegFile(event) {
+      const file = event.target.files[0];
+      event.target.value = '';
+      if (!file) return;
+      loadJpegAsHex(file);
+    }
+
+    function loadJpegAsHex(file) {
+      if (!file.type.startsWith('image/') && !file.name.match(/\.(jpg|jpeg)$/i)) {
+        setJ2HStatus('Please select a JPEG / JPG file.', 'err');
+        return;
+      }
+      setJ2HStatus(`Reading "${file.name}"…`, 'info');
+
+      const reader = new FileReader();
+      reader.onload = e => {
+        const arrayBuffer = e.target.result;
+        const bytes = new Uint8Array(arrayBuffer);
+
+        // Convert to hex string (uppercase, no separators)
+        let hex = '';
+        for (let i = 0; i < bytes.length; i++) {
+          hex += bytes[i].toString(16).padStart(2, '0').toUpperCase();
+        }
+        currentHexString = hex;
+
+        // Show preview
+        const blob = new Blob([bytes], { type: 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
+        const preview = document.getElementById('jpegPreview');
+        preview.src = url;
+        preview.style.display = 'block';
+        document.getElementById('dropZoneText').textContent = file.name;
+
+        // Fill output
+        document.getElementById('j2hHexOutput').value = hex;
+        document.getElementById('j2hStatSize').textContent = file.size.toLocaleString() + ' B';
+        document.getElementById('j2hStatChars').textContent = hex.length.toLocaleString();
+        document.getElementById('j2hStatName').textContent = file.name;
+        document.getElementById('j2hOutputWrap').style.display = 'block';
+
+        setJ2HStatus(`Done — ${file.size.toLocaleString()} bytes → ${hex.length.toLocaleString()} hex chars.`, 'ok');
+      };
+      reader.onerror = () => setJ2HStatus('Failed to read file.', 'err');
+      reader.readAsArrayBuffer(file);
+    }
+
+    function copyHex() {
+      if (!currentHexString) return;
+      navigator.clipboard.writeText(currentHexString)
+        .then(() => setJ2HStatus('Hex string copied to clipboard!', 'ok'))
+        .catch(() => {
+          // Fallback for browsers without clipboard API
+          const ta = document.getElementById('j2hHexOutput');
+          ta.select();
+          document.execCommand('copy');
+          setJ2HStatus('Hex string copied (fallback).', 'ok');
+        });
+    }
+
+    function sendToInput() {
+      if (!currentHexString) return;
+      document.getElementById('hexInput').value = currentHexString;
+      setStatus('Hex string sent to input — press Convert to Image.', 'info');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function downloadHex() {
+      if (!currentHexString) return;
+      const name = (document.getElementById('j2hStatName').textContent || 'image').replace(/\.[^.]+$/, '');
+      const blob = new Blob([currentHexString], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name + '.hex';
+      a.click();
+    }
+
+    function clearJpeg2Hex() {
+      currentHexString = '';
+      const preview = document.getElementById('jpegPreview');
+      preview.src = '';
+      preview.style.display = 'none';
+      document.getElementById('dropZoneText').textContent = 'Click or drag & drop a JPEG / JPG file here';
+      document.getElementById('j2hHexOutput').value = '';
+      document.getElementById('j2hOutputWrap').style.display = 'none';
+      setJ2HStatus('No file loaded.', 'info');
+    }
+
+    // Drag-and-drop support
+    const dropZone = document.getElementById('dropZone');
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) loadJpegAsHex(file);
+    });
+  </script>
+</body>
+</html>

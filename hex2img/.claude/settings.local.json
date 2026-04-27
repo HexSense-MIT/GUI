@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 /Users/liufangzheng/Documents/Lab/github/HexSense_MIT/HS_ESP32_CAM_module/hex2img/hex2img.py --help)"
+    ]
+  }
+}

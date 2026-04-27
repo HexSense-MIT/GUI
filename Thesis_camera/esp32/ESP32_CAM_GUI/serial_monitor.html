@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serial Port Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        select, input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-connect {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-connect:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-disconnect {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-disconnect:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn-clear {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #e68900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .status.disconnected {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .terminal-container {
+            margin-bottom: 20px;
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .terminal::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 4px;
+        }
+
+        .terminal::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        .terminal::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        .send-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .send-input {
+            flex: 1;
+        }
+
+        .btn-send {
+            background: #2196F3;
+            color: white;
+            min-width: 100px;
+        }
+
+        .btn-send:hover {
+            background: #0b7dda;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #1565c0;
+        }
+
+        .timestamp {
+            color: #888;
+            margin-right: 8px;
+        }
+
+        .rx-data {
+            color: #00ff00;
+        }
+
+        .tx-data {
+            color: #00bfff;
+        }
+
+        .error-data {
+            color: #ff4444;
+        }
+
+        .camera-controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .camera-controls h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .camera-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .command-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .btn-camera {
+            background: #9c27b0;
+            color: white;
+            padding: 10px 20px;
+            min-width: 100px;
+        }
+
+        .btn-camera:hover:not(:disabled) {
+            background: #7b1fa2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+        }
+
+        .hex-input {
+            font-family: 'Courier New', monospace;
+        }
+
+        .cobs-calculator {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .cobs-calculator h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .calc-group {
+            margin-bottom: 15px;
+        }
+
+        .calc-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .calc-input {
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .calc-output {
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f1f8f4;
+            min-height: 60px;
+            word-break: break-all;
+        }
+
+        .calc-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn-calc {
+            background: #ff9800;
+            color: white;
+            padding: 10px 16px;
+            font-size: 13px;
+            min-width: auto;
+        }
+
+        .btn-calc:hover {
+            background: #e68900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <div class="container">
+            <h1>ESP32 360 Camera Monitor</h1>
+
+            <div class="status disconnected" id="status">
+                Disconnected
+            </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="baudRate">Baud Rate</label>
+                <select id="baudRate">
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200" selected>115200</option>
+                    <option value="230400">230400</option>
+                    <option value="460800">460800</option>
+                    <option value="921600">921600</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="dataBits">Data Bits</label>
+                <select id="dataBits">
+                    <option value="7">7</option>
+                    <option value="8" selected>8</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="stopBits">Stop Bits</label>
+                <select id="stopBits">
+                    <option value="1" selected>1</option>
+                    <option value="2">2</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="parity">Parity</label>
+                <select id="parity">
+                    <option value="none" selected>None</option>
+                    <option value="even">Even</option>
+                    <option value="odd">Odd</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-connect" id="connectBtn">Connect</button>
+            <button class="btn-disconnect" id="disconnectBtn" disabled>Disconnect</button>
+            <button class="btn-clear" id="clearBtn">Clear Terminal</button>
+        </div>
+
+        <div class="camera-controls">
+            <h2>360 Camera Commands</h2>
+
+            <div class="camera-settings">
+                <div class="control-group">
+                    <label for="cameraIndex">Camera Index (0-5 = Camera 1-6)</label>
+                    <input type="number" id="cameraIndex" min="0" max="5" value="0">
+                </div>
+
+                <div class="control-group">
+                    <label for="macAddress">MAC Address (6 bytes, hex)</label>
+                    <input type="text" id="macAddress" class="hex-input" value="DC:DA:0C:7A:95:D4" placeholder="DC:DA:0C:7A:95:D4">
+                </div>
+            </div>
+
+            <div class="command-buttons">
+                <button class="btn-camera" onclick="sendCameraCommand(0x01)" disabled id="cmdBtn1">Turn On Camera</button>
+                <button class="btn-camera" onclick="sendCameraCommand(0x02)" disabled id="cmdBtn2">Turn Off Camera</button>
+                <button class="btn-camera" onclick="sendCameraCommand(0x03)" disabled id="cmdBtn3">Take Photo</button>
+                <button class="btn-camera" onclick="sendCameraCommand(0x04)" disabled id="cmdBtn4">Send Data Back</button>
+                <button class="btn-camera" onclick="sendCameraCommand(0xFF)" disabled id="cmdBtn255">Ignore (0xFF)</button>
+            </div>
+        </div>
+
+        <div class="terminal-container">
+            <div class="terminal" id="terminal"></div>
+        </div>
+
+        <div class="send-container">
+            <input
+                type="text"
+                class="send-input"
+                id="sendInput"
+                placeholder="Enter data to send..."
+                disabled
+            >
+            <button class="btn-send" id="sendBtn" disabled>Send</button>
+        </div>
+
+        <div class="info">
+            <strong>Info:</strong> This application uses the Web Serial API. Make sure you're using a compatible browser (Chrome, Edge, Opera) and grant serial port permissions when prompted.
+        </div>
+        </div>
+
+        <div class="sidebar">
+            <div class="cobs-calculator">
+                <h2>COBS & Checksum Calculator</h2>
+
+                <div class="calc-group">
+                    <label for="cobsInput">Hex Input</label>
+                    <input type="text" id="cobsInput" class="calc-input hex-input" placeholder="EB 90 01 00">
+                </div>
+
+                <div class="calc-buttons">
+                    <button class="btn-calc" onclick="calculateEncode()">Encode to COBS</button>
+                    <button class="btn-calc" onclick="calculateDecode()">Decode from COBS</button>
+                    <button class="btn-calc" onclick="calculateChecksum()">Checksum (Lower Byte)</button>
+                </div>
+
+                <div class="calc-group">
+                    <label>Output:</label>
+                    <div id="cobsOutput" class="calc-output">Result will appear here...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        let reader;
+        let writer;
+        let keepReading = true;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const sendBtn = document.getElementById('sendBtn');
+        const sendInput = document.getElementById('sendInput');
+        const terminal = document.getElementById('terminal');
+        const status = document.getElementById('status');
+
+        // ===== COBS (Consistent Overhead Byte Stuffing) Encoding/Decoding =====
+
+        // COBS encode a byte array
+        function cobsEncode(data) {
+            const output = [];
+            let codeIndex = 0;
+            let code = 1;
+
+            output.push(0); // Placeholder for first code
+
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] === 0) {
+                    output[codeIndex] = code;
+                    code = 1;
+                    codeIndex = output.length;
+                    output.push(0);
+                } else {
+                    output.push(data[i]);
+                    code++;
+                    if (code === 0xFF) {
+                        output[codeIndex] = code;
+                        code = 1;
+                        codeIndex = output.length;
+                        output.push(0);
+                    }
+                }
+            }
+
+            output[codeIndex] = code;
+            output.push(0); // Add terminating zero
+
+            return new Uint8Array(output);
+        }
+
+        // COBS decode a byte array
+        function cobsDecode(data) {
+            const output = [];
+            let i = 0;
+
+            // Remove trailing 0x00 delimiter if present
+            let dataLength = data.length;
+            if (dataLength > 0 && data[dataLength - 1] === 0) {
+                dataLength--;
+            }
+
+            while (i < dataLength) {
+                const code = data[i++];
+                if (code === 0) break; // End of packet
+
+                for (let j = 1; j < code && i < dataLength; j++) {
+                    output.push(data[i++]);
+                }
+
+                if (code < 0xFF && i < dataLength) {
+                    output.push(0);
+                }
+            }
+
+            return new Uint8Array(output);
+        }
+
+        // ===== CRC Calculation =====
+
+        // Calculate CRC8 (using polynomial 0x07)
+        function calculateCRC8(data) {
+            let crc = 0x00;
+            for (let i = 0; i < data.length; i++) {
+                crc ^= data[i];
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x80) {
+                        crc = (crc << 1) ^ 0x07;
+                    } else {
+                        crc = crc << 1;
+                    }
+                }
+                crc &= 0xFF;
+            }
+            return crc;
+        }
+
+        // ===== Camera Command Protocol =====
+
+        // Parse MAC address from string (AA:BB:CC:DD:EE:FF or AABBCCDDEEFF)
+        function parseMacAddress(macStr) {
+            const cleaned = macStr.replace(/[^0-9A-Fa-f]/g, '');
+            if (cleaned.length !== 12) {
+                throw new Error('Invalid MAC address format. Expected 12 hex digits.');
+            }
+            const mac = [];
+            for (let i = 0; i < 12; i += 2) {
+                mac.push(parseInt(cleaned.substr(i, 2), 16));
+            }
+            return new Uint8Array(mac);
+        }
+
+        // Build camera command packet
+        // Format: [0xEB, 0x90, CMD, CAM_INDEX, MAC(6 bytes)]
+        function buildCameraCommand(cmd, cameraIndex, macAddress) {
+            const packet = new Uint8Array(10);
+            packet[0] = 0xEB;  // Byte 0: Header
+            packet[1] = 0x90;  // Byte 1: Header
+            packet[2] = cmd;   // Byte 2: Command
+            packet[3] = cameraIndex; // Byte 3: Camera index
+
+            // Bytes 4-9: MAC address
+            for (let i = 0; i < 6; i++) {
+                packet[4 + i] = macAddress[i];
+            }
+
+            return packet;
+        }
+
+        // Convert byte array to hex string for display
+        function bytesToHex(bytes) {
+            return Array.from(bytes)
+                .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+                .join(' ');
+        }
+
+        // ===== COBS Calculator Functions =====
+
+        // Parse hex string to byte array
+        function parseHexString(hexStr) {
+            const cleaned = hexStr.replace(/[^0-9A-Fa-f]/g, '');
+            if (cleaned.length % 2 !== 0) {
+                throw new Error('Invalid hex string length (must be even number of hex digits)');
+            }
+            const bytes = [];
+            for (let i = 0; i < cleaned.length; i += 2) {
+                bytes.push(parseInt(cleaned.substr(i, 2), 16));
+            }
+            return new Uint8Array(bytes);
+        }
+
+        // Calculate COBS encoding
+        function calculateEncode() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter hex bytes to encode';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Encode
+                const encoded = cobsEncode(data);
+
+                // Display result
+                output.innerHTML = `<strong>Input (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>COBS Encoded (${encoded.length} bytes):</strong><br>${bytesToHex(encoded)}`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // Calculate COBS decoding
+        function calculateDecode() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter COBS encoded hex bytes to decode';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Decode
+                const decoded = cobsDecode(data);
+
+                // Display result
+                output.innerHTML = `<strong>Input COBS (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>Decoded (${decoded.length} bytes):</strong><br>${bytesToHex(decoded)}`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // Calculate checksum (lower byte of sum)
+        function calculateChecksum() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter hex bytes to calculate checksum';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Calculate sum
+                let sum = 0;
+                for (let i = 0; i < data.length; i++) {
+                    sum += data[i];
+                }
+
+                // Get lower byte (sum & 0xFF)
+                const checksum = sum & 0xFF;
+
+                // Display result
+                output.innerHTML = `<strong>Input (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>Sum:</strong> 0x${sum.toString(16).toUpperCase()} (${sum} decimal)<br>` +
+                                   `<strong>Checksum (Lower Byte):</strong> 0x${checksum.toString(16).padStart(2, '0').toUpperCase()} (${checksum} decimal)`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // ===== Camera Command Sending =====
+
+        // Send camera command
+        async function sendCameraCommand(cmd) {
+            if (!port) {
+                log('Error: Not connected to serial port', 'error');
+                return;
+            }
+
+            try {
+                // Get camera index and MAC address
+                const cameraIndex = parseInt(document.getElementById('cameraIndex').value) || 0;
+                const macStr = document.getElementById('macAddress').value;
+                const macAddress = parseMacAddress(macStr);
+
+                // Build command packet
+                const packet = buildCameraCommand(cmd, cameraIndex, macAddress);
+
+                // Log original packet
+                log(`TX (Raw):     [${bytesToHex(packet)}]`, 'tx');
+
+                // COBS encode
+                const encoded = cobsEncode(packet);
+
+                // Log COBS encoded packet
+                log(`TX (COBS):    [${bytesToHex(encoded)}]`, 'tx');
+
+                // Send the encoded packet
+                const writer = port.writable.getWriter();
+                await writer.write(encoded);
+                writer.releaseLock();
+
+                log(`Sent command 0x${cmd.toString(16).padStart(2, '0').toUpperCase()} to camera ${cameraIndex}`, 'info');
+
+            } catch (error) {
+                log(`Send command error: ${error.message}`, 'error');
+            }
+        }
+
+        // Get current timestamp
+        function getTimestamp() {
+            const now = new Date();
+            return `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}]`;
+        }
+
+        // Log to terminal
+        function log(message, type = 'info') {
+            const timestamp = getTimestamp();
+            const line = document.createElement('div');
+
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'timestamp';
+            timeSpan.textContent = timestamp;
+
+            const msgSpan = document.createElement('span');
+            msgSpan.className = type === 'rx' ? 'rx-data' : type === 'tx' ? 'tx-data' : type === 'error' ? 'error-data' : '';
+            msgSpan.textContent = message;
+
+            line.appendChild(timeSpan);
+            line.appendChild(msgSpan);
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Update status
+        function updateStatus(connected) {
+            if (connected) {
+                status.textContent = 'Connected';
+                status.className = 'status connected';
+            } else {
+                status.textContent = 'Disconnected';
+                status.className = 'status disconnected';
+            }
+        }
+
+        // Connect to serial port
+        async function connect() {
+            try {
+                // Request a port
+                port = await navigator.serial.requestPort();
+
+                // Get settings
+                const baudRate = parseInt(document.getElementById('baudRate').value);
+                const dataBits = parseInt(document.getElementById('dataBits').value);
+                const stopBits = parseInt(document.getElementById('stopBits').value);
+                const parity = document.getElementById('parity').value;
+
+                // Open the port
+                await port.open({
+                    baudRate: baudRate,
+                    dataBits: dataBits,
+                    stopBits: stopBits,
+                    parity: parity
+                });
+
+                log(`Connected at ${baudRate} baud`, 'info');
+                updateStatus(true);
+
+                // Enable/disable buttons
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                sendBtn.disabled = false;
+                sendInput.disabled = false;
+
+                // Enable camera command buttons
+                document.getElementById('cmdBtn1').disabled = false;
+                document.getElementById('cmdBtn2').disabled = false;
+                document.getElementById('cmdBtn3').disabled = false;
+                document.getElementById('cmdBtn4').disabled = false;
+                document.getElementById('cmdBtn255').disabled = false;
+
+                // Disable settings while connected
+                document.getElementById('baudRate').disabled = true;
+                document.getElementById('dataBits').disabled = true;
+                document.getElementById('stopBits').disabled = true;
+                document.getElementById('parity').disabled = true;
+
+                // Start reading
+                readLoop();
+
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Read loop - reads raw bytes and displays as text
+        async function readLoop() {
+            keepReading = true;
+
+            try {
+                reader = port.readable.getReader();
+
+                while (keepReading && port.readable) {
+                    try {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            log('Connection closed by device', 'error');
+                            break;
+                        }
+                        if (value && value.length > 0) {
+                            // Decode as text
+                            try {
+                                const textDecoder = new TextDecoder();
+                                const text = textDecoder.decode(value);
+                                log(text, 'rx');
+                            } catch (e) {
+                                // If text decoding fails, skip
+                                log(`[Binary data: ${value.length} bytes]`, 'rx');
+                            }
+                        }
+                    } catch (error) {
+                        if (keepReading) {
+                            log(`Read error: ${error.message}`, 'error');
+                        }
+                        break;
+                    }
+                }
+            } catch (error) {
+                if (keepReading) {
+                    log(`Stream error: ${error.message}`, 'error');
+                }
+            } finally {
+                // Clean up reader
+                if (reader) {
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        // Ignore errors when releasing lock
+                    }
+                    reader = null;
+                }
+
+                // Auto-cleanup on unexpected disconnect
+                if (keepReading && port) {
+                    log('Unexpected disconnection - cleaning up...', 'error');
+                    await disconnect();
+                }
+            }
+        }
+
+        // Disconnect from serial port
+        async function disconnect() {
+            keepReading = false;
+
+            try {
+                // Cancel and release reader
+                if (reader) {
+                    try {
+                        await reader.cancel();
+                    } catch (e) {
+                        // Ignore cancel errors
+                    }
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        // Ignore release errors
+                    }
+                    reader = null;
+                }
+
+                // Close port
+                if (port) {
+                    try {
+                        await port.close();
+                    } catch (e) {
+                        // Ignore close errors
+                    }
+                    port = null;
+                }
+
+                log('Disconnected', 'info');
+                updateStatus(false);
+
+                // Enable/disable buttons
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                sendBtn.disabled = true;
+                sendInput.disabled = true;
+
+                // Disable camera command buttons
+                document.getElementById('cmdBtn1').disabled = true;
+                document.getElementById('cmdBtn2').disabled = true;
+                document.getElementById('cmdBtn3').disabled = true;
+                document.getElementById('cmdBtn4').disabled = true;
+                document.getElementById('cmdBtn255').disabled = true;
+
+                // Enable settings
+                document.getElementById('baudRate').disabled = false;
+                document.getElementById('dataBits').disabled = false;
+                document.getElementById('stopBits').disabled = false;
+                document.getElementById('parity').disabled = false;
+
+            } catch (error) {
+                log(`Disconnect error: ${error.message}`, 'error');
+            }
+        }
+
+        // Send data
+        async function sendData() {
+            const data = sendInput.value;
+            if (!data || !port) return;
+
+            try {
+                const writer = port.writable.getWriter();
+                const encoder = new TextEncoder();
+                await writer.write(encoder.encode(data + '\n'));
+                writer.releaseLock();
+
+                log(data, 'tx');
+                sendInput.value = '';
+            } catch (error) {
+                log(`Send error: ${error.message}`, 'error');
+            }
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        clearBtn.addEventListener('click', () => {
+            terminal.innerHTML = '';
+        });
+        sendBtn.addEventListener('click', sendData);
+        sendInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendData();
+            }
+        });
+
+        // Check Web Serial API support
+        if (!('serial' in navigator)) {
+            log('Web Serial API not supported in this browser!', 'error');
+            log('Please use Chrome, Edge, or Opera browser.', 'error');
+            connectBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>

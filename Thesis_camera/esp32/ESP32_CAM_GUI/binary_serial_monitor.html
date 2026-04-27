@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Binary Serial Port Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .main-wrapper {
+            display: grid;
+            grid-template-columns: 400px 1fr 350px;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        @media (max-width: 1400px) {
+            .main-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 28px;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        select, input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .btn-connect {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-connect:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .btn-disconnect {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-disconnect:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+        }
+
+        .btn-clear {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-clear:hover {
+            background: #e68900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .status.disconnected {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .status.connected {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .terminal-container {
+            margin-bottom: 20px;
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            height: 700px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .terminal::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 4px;
+        }
+
+        .terminal::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+
+        .terminal::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        .camera-controls {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .camera-controls h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .camera-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .command-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .btn-camera {
+            background: #9c27b0;
+            color: white;
+            padding: 10px 20px;
+            min-width: 100px;
+        }
+
+        .btn-camera:hover:not(:disabled) {
+            background: #7b1fa2;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+        }
+
+        .hex-input {
+            font-family: 'Courier New', monospace;
+        }
+
+        .cobs-calculator {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .cobs-calculator h2 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .calc-group {
+            margin-bottom: 15px;
+        }
+
+        .calc-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .calc-input {
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .calc-output {
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            padding: 10px;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f1f8f4;
+            min-height: 60px;
+            word-break: break-all;
+        }
+
+        .calc-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn-calc {
+            background: #ff9800;
+            color: white;
+            padding: 10px 16px;
+            font-size: 13px;
+            min-width: auto;
+        }
+
+        .btn-calc:hover {
+            background: #e68900;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+        }
+
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 13px;
+            color: #1565c0;
+        }
+
+        .timestamp {
+            color: #888;
+            margin-right: 8px;
+        }
+
+        .rx-data {
+            color: #00ff00;
+        }
+
+        .tx-data {
+            color: #00bfff;
+        }
+
+        .error-data {
+            color: #ff4444;
+        }
+
+        .ack-packet {
+            color: #ffff00;
+        }
+
+        .data-packet {
+            color: #ff00ff;
+        }
+
+        .packet-info {
+            color: #00ffff;
+            margin-left: 20px;
+        }
+
+        .image-preview {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+        }
+
+        .image-preview img {
+            max-width: 100%;
+            max-height: 700px;
+            object-fit: contain;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .image-preview h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- Left Panel: Controls and Terminal -->
+        <div class="left-panel">
+            <div class="container">
+                <h1>ESP32 Camera Monitor</h1>
+
+                <div class="status disconnected" id="status">
+                    Disconnected
+                </div>
+
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="baudRate">Baud Rate</label>
+                        <select id="baudRate">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="38400">38400</option>
+                            <option value="57600">57600</option>
+                            <option value="115200">115200</option>
+                            <option value="230400">230400</option>
+                            <option value="460800">460800</option>
+                            <option value="921600" selected>921600</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-connect" id="connectBtn">Connect</button>
+                    <button class="btn-disconnect" id="disconnectBtn" disabled>Disconnect</button>
+                    <button class="btn-clear" id="clearBtn">Clear</button>
+                </div>
+
+                <div class="camera-controls">
+                    <h2>Camera Commands</h2>
+
+                    <div class="camera-settings">
+                        <div class="control-group">
+                            <label for="cameraIndex">Camera Index (0-5)</label>
+                            <input type="number" id="cameraIndex" min="0" max="5" value="0">
+                        </div>
+
+                        <div class="control-group">
+                            <label for="macAddress">MAC Address</label>
+                            <select id="macAddress">
+                                <option value="DC:DA:0C:7A:95:D4" selected>DC:DA:0C:7A:95:D4</option>
+                                <option value="DC:DA:0C:7A:96:34">DC:DA:0C:7A:96:34</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="command-buttons">
+                        <button class="btn-camera" onclick="sendCameraCommand(0x01)" disabled id="cmdBtn1">Turn On</button>
+                        <button class="btn-camera" onclick="sendCameraCommand(0x02)" disabled id="cmdBtn2">Turn Off</button>
+                        <button class="btn-camera" onclick="takePhotoAndSendData()" disabled id="cmdBtn3">Take Photo</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cobs-calculator">
+                <h2>COBS & Checksum Calculator</h2>
+
+                <div class="calc-group">
+                    <label for="cobsInput">Hex Input</label>
+                    <input type="text" id="cobsInput" class="calc-input hex-input" placeholder="EB 90 01 00">
+                </div>
+
+                <div class="calc-buttons">
+                    <button class="btn-calc" onclick="calculateEncode()">Encode to COBS</button>
+                    <button class="btn-calc" onclick="calculateDecode()">Decode from COBS</button>
+                    <button class="btn-calc" onclick="calculateChecksum()">Checksum</button>
+                </div>
+
+                <div class="calc-group">
+                    <label>Output:</label>
+                    <div id="cobsOutput" class="calc-output">Result will appear here...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Terminal -->
+        <div class="container">
+            <div class="terminal-container">
+                <div class="terminal" id="terminal"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Image Preview -->
+        <div class="image-preview">
+            <h3>Received Image</h3>
+            <div id="imageContainer">No image received yet</div>
+        </div>
+    </div>
+
+    <script>
+        let port;
+        let reader;
+        let writer;
+        let keepReading = true;
+        let receiveBuffer = new Uint8Array(0);
+
+        // Performance optimization: batch DOM updates
+        let logQueue = [];
+        let logBatchTimeout = null;
+        const LOG_BATCH_INTERVAL = 50; // ms - batch logs every 50ms for better performance
+
+        // Image reconstruction
+        let imageBuffer = [];
+        let lastDataPacketLine = null;
+        let totalImageSize = 0;
+        let currentCameraIndex = 0;
+        let lastSequenceNumber = -1;
+        let missingPackets = [];
+
+        // ACK timeout tracking
+        let ackWaitStartTime = null;
+        const ACK_TIMEOUT_MS = 1000; // 1 second timeout for ACK packets
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const terminal = document.getElementById('terminal');
+        const status = document.getElementById('status');
+
+        // ===== COBS (Consistent Overhead Byte Stuffing) Encoding/Decoding =====
+
+        // COBS encode a byte array
+        function cobsEncode(data) {
+            const output = [];
+            let codeIndex = 0;
+            let code = 1;
+
+            output.push(0); // Placeholder for first code
+
+            for (let i = 0; i < data.length; i++) {
+                if (data[i] === 0) {
+                    output[codeIndex] = code;
+                    code = 1;
+                    codeIndex = output.length;
+                    output.push(0);
+                } else {
+                    output.push(data[i]);
+                    code++;
+                    if (code === 0xFF) {
+                        output[codeIndex] = code;
+                        code = 1;
+                        codeIndex = output.length;
+                        output.push(0);
+                    }
+                }
+            }
+
+            output[codeIndex] = code;
+            output.push(0); // Add terminating zero
+
+            return new Uint8Array(output);
+        }
+
+        // COBS decode a byte array
+        function cobsDecode(data) {
+            const output = [];
+            let i = 0;
+
+            // Remove trailing 0x00 delimiter if present
+            let dataLength = data.length;
+            if (dataLength > 0 && data[dataLength - 1] === 0) {
+                dataLength--;
+            }
+
+            while (i < dataLength) {
+                const code = data[i++];
+                if (code === 0) break; // End of packet
+
+                for (let j = 1; j < code && i < dataLength; j++) {
+                    output.push(data[i++]);
+                }
+
+                if (code < 0xFF && i < dataLength) {
+                    output.push(0);
+                }
+            }
+
+            return new Uint8Array(output);
+        }
+
+        // ===== CRC Calculation =====
+
+        // Calculate CRC8 (using polynomial 0x07)
+        function calculateCRC8(data) {
+            let crc = 0x00;
+            for (let i = 0; i < data.length; i++) {
+                crc ^= data[i];
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x80) {
+                        crc = (crc << 1) ^ 0x07;
+                    } else {
+                        crc = crc << 1;
+                    }
+                }
+                crc &= 0xFF;
+            }
+            return crc;
+        }
+
+        // Calculate CRC16 (using polynomial 0x1021 - CCITT)
+        function calculateCRC16(data) {
+            let crc = 0xFFFF;
+            for (let i = 0; i < data.length; i++) {
+                crc ^= (data[i] << 8);
+                for (let j = 0; j < 8; j++) {
+                    if (crc & 0x8000) {
+                        crc = (crc << 1) ^ 0x1021;
+                    } else {
+                        crc = crc << 1;
+                    }
+                }
+                crc &= 0xFFFF;
+            }
+            return crc;
+        }
+
+        // ===== Camera Command Protocol =====
+
+        // Parse MAC address from string (AA:BB:CC:DD:EE:FF or AABBCCDDEEFF)
+        function parseMacAddress(macStr) {
+            const cleaned = macStr.replace(/[^0-9A-Fa-f]/g, '');
+            if (cleaned.length !== 12) {
+                throw new Error('Invalid MAC address format. Expected 12 hex digits.');
+            }
+            const mac = [];
+            for (let i = 0; i < 12; i += 2) {
+                mac.push(parseInt(cleaned.substr(i, 2), 16));
+            }
+            return new Uint8Array(mac);
+        }
+
+        // Build camera command packet
+        // Format: [0xEB, 0x90, CMD, CAM_INDEX, MAC(6 bytes)]
+        function buildCameraCommand(cmd, cameraIndex, macAddress) {
+            const packet = new Uint8Array(10);
+            packet[0] = 0xEB;  // Byte 0: Header
+            packet[1] = 0x90;  // Byte 1: Header
+            packet[2] = cmd;   // Byte 2: Command
+            packet[3] = cameraIndex; // Byte 3: Camera index
+
+            // Bytes 4-9: MAC address
+            for (let i = 0; i < 6; i++) {
+                packet[4 + i] = macAddress[i];
+            }
+
+            return packet;
+        }
+
+        // Convert byte array to hex string for display
+        function bytesToHex(bytes) {
+            return Array.from(bytes)
+                .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+                .join(' ');
+        }
+
+        // ===== COBS Calculator Functions =====
+
+        // Parse hex string to byte array
+        function parseHexString(hexStr) {
+            const cleaned = hexStr.replace(/[^0-9A-Fa-f]/g, '');
+            if (cleaned.length % 2 !== 0) {
+                throw new Error('Invalid hex string length (must be even number of hex digits)');
+            }
+            const bytes = [];
+            for (let i = 0; i < cleaned.length; i += 2) {
+                bytes.push(parseInt(cleaned.substr(i, 2), 16));
+            }
+            return new Uint8Array(bytes);
+        }
+
+        // Calculate COBS encoding
+        function calculateEncode() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter hex bytes to encode';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Encode
+                const encoded = cobsEncode(data);
+
+                // Display result
+                output.innerHTML = `<strong>Input (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>COBS Encoded (${encoded.length} bytes):</strong><br>${bytesToHex(encoded)}`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // Calculate COBS decoding
+        function calculateDecode() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter COBS encoded hex bytes to decode';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Decode
+                const decoded = cobsDecode(data);
+
+                // Display result
+                output.innerHTML = `<strong>Input COBS (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>Decoded (${decoded.length} bytes):</strong><br>${bytesToHex(decoded)}`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // Calculate checksum (lower byte of sum)
+        function calculateChecksum() {
+            const input = document.getElementById('cobsInput').value.trim();
+            const output = document.getElementById('cobsOutput');
+
+            try {
+                if (!input) {
+                    output.textContent = 'Please enter hex bytes to calculate checksum';
+                    return;
+                }
+
+                // Parse input
+                const data = parseHexString(input);
+
+                // Calculate sum
+                let sum = 0;
+                for (let i = 0; i < data.length; i++) {
+                    sum += data[i];
+                }
+
+                // Get lower byte (sum & 0xFF)
+                const checksum = sum & 0xFF;
+
+                // Display result
+                output.innerHTML = `<strong>Input (${data.length} bytes):</strong><br>${bytesToHex(data)}<br><br>` +
+                                   `<strong>Sum:</strong> 0x${sum.toString(16).toUpperCase()} (${sum} decimal)<br>` +
+                                   `<strong>Checksum (Lower Byte):</strong> 0x${checksum.toString(16).padStart(2, '0').toUpperCase()} (${checksum} decimal)`;
+            } catch (error) {
+                output.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+            }
+        }
+
+        // ===== Camera Command Sending =====
+
+        // Take photo and automatically send data after 0.5s
+        async function takePhotoAndSendData() {
+            // Send Take Photo command (0x03)
+            await sendCameraCommand(0x03);
+
+            // Wait 0.5 seconds, then send Send Data command (0x04)
+            setTimeout(async () => {
+                await sendCameraCommand(0x04);
+            }, 500);
+        }
+
+        // Send camera command
+        async function sendCameraCommand(cmd) {
+            if (!port) {
+                log('Error: Not connected to serial port', 'error');
+                return;
+            }
+
+            try {
+                // Get camera index and MAC address
+                const cameraIndex = parseInt(document.getElementById('cameraIndex').value) || 0;
+                const macStr = document.getElementById('macAddress').value;
+                const macAddress = parseMacAddress(macStr);
+
+                // Reset sequence number for Take Photo (0x03) and Send Data Back (0x04)
+                if (cmd === 0x03 || cmd === 0x04) {
+                    lastSequenceNumber = -1;
+                    missingPackets = [];
+                    imageBuffer = [];
+                    log(`Sequence number reset for new image`, 'info');
+                }
+
+                // Build command packet
+                const packet = buildCameraCommand(cmd, cameraIndex, macAddress);
+
+                // COBS encode
+                const encoded = cobsEncode(packet);
+
+                // Send the encoded packet
+                const writer = port.writable.getWriter();
+                await writer.write(encoded);
+                writer.releaseLock();
+
+                // Only log that command was sent, not the data
+                const cmdNames = {
+                    0x01: 'Turn On Camera',
+                    0x02: 'Turn Off Camera',
+                    0x03: 'Take Photo',
+                    0x04: 'Send Data Back',
+                    0xFF: 'Ignore'
+                };
+                const cmdName = cmdNames[cmd] || `0x${cmd.toString(16).padStart(2, '0').toUpperCase()}`;
+                log(`Sent: ${cmdName} (Camera ${cameraIndex})`, 'tx');
+
+            } catch (error) {
+                log(`Send command error: ${error.message}`, 'error');
+            }
+        }
+
+        // ===== Packet Parsing =====
+
+        // Parse AckPacket (COBS encoded)
+        // struct AckPacket {
+        //   uint8_t header[2] = {0xEB, 0x91};
+        //   uint8_t cmd;
+        //   uint8_t camera_index;
+        //   uint8_t image_size[4];
+        //   uint8_t crc;
+        // } __attribute__((packed));
+        function parseAckPacket(data) {
+            if (data.length < 9) {
+                log(`DEBUG: ACK packet too short: ${data.length} bytes (need 9)`, 'error');
+                return null;
+            }
+
+            // Check header
+            if (data[0] !== 0xEB || data[1] !== 0x91) {
+                log(`DEBUG: Wrong header: ${data[0].toString(16).padStart(2, '0')} ${data[1].toString(16).padStart(2, '0')} (expected EB 91)`, 'error');
+                return null;
+            }
+
+            const cmd = data[2];
+            const cameraIndex = data[3];
+            const imageSize = (data[4] << 0) | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
+            const crc = data[8];
+
+            // Verify CRC
+            const dataToCheck = data.slice(0, 8);
+            const calculatedCRC = calculateCRC8(dataToCheck);
+
+            return {
+                type: 'ACK',
+                cmd: cmd,
+                cameraIndex: cameraIndex,
+                imageSize: imageSize,
+                crc: crc,
+                crcValid: crc === calculatedCRC
+            };
+        }
+
+        // Parse DataPacket (NOT COBS encoded)
+        // struct DataPacket {
+        //   uint8_t  header[2] = {0xEB, 0x92};
+        //   uint16_t seq;
+        //   uint8_t  camera_index;
+        //   uint16_t bytes_left;
+        //   uint8_t  payload[200];
+        //   uint16_t crc;
+        // } __attribute__((packed));
+        function parseDataPacket(data, skipCRC = false) {
+            if (data.length < 209) {
+                return null;
+            }
+
+            // Check header
+            if (data[0] !== 0xEB || data[1] !== 0x92) {
+                return null;
+            }
+
+            const seq = (data[2] << 0) | (data[3] << 8);
+            const cameraIndex = data[4];
+            const bytesLeft = (data[5] << 0) | (data[6] << 8);
+            const payload = data.slice(7, 207);
+            const crc = (data[207] << 0) | (data[208] << 8);
+
+            // Skip CRC validation for maximum speed (optional)
+            let crcValid = true;
+            if (!skipCRC) {
+                const dataToCheck = data.slice(0, 207);
+                const calculatedCRC = calculateCRC16(dataToCheck);
+                crcValid = (crc === calculatedCRC);
+            }
+
+            return {
+                type: 'DATA',
+                seq: seq,
+                cameraIndex: cameraIndex,
+                bytesLeft: bytesLeft,
+                payload: payload,
+                crc: crc,
+                crcValid: crcValid
+            };
+        }
+
+        // Process received data and look for packets
+        function processReceivedData(newData) {
+            // Append new data to buffer
+            const combined = new Uint8Array(receiveBuffer.length + newData.length);
+            combined.set(receiveBuffer);
+            combined.set(newData, receiveBuffer.length);
+            receiveBuffer = combined;
+
+            // Look for packets
+            while (receiveBuffer.length >= 2) {
+                // Check for AckPacket (0xEB 0x91) - NOT COBS encoded, already decoded
+                // ACK packets are exactly 9 bytes
+                if (receiveBuffer[0] === 0xEB && receiveBuffer[1] === 0x91) {
+                    if (receiveBuffer.length >= 9) {
+                        log(`DEBUG: Found ACK packet (9 bytes): ${bytesToHex(receiveBuffer.slice(0, 9))}`, 'rx');
+
+                        // Parse ACK packet (no COBS decoding needed)
+                        const ackPacket = parseAckPacket(receiveBuffer.slice(0, 9));
+                        if (ackPacket) {
+                            displayAckPacket(ackPacket);
+                            receiveBuffer = receiveBuffer.slice(9);
+                            ackWaitStartTime = null; // Reset timeout
+                            continue;
+                        } else {
+                            log(`DEBUG: Not a valid ACK packet (parse failed)`, 'error');
+                            receiveBuffer = receiveBuffer.slice(1);
+                            ackWaitStartTime = null; // Reset timeout
+                            continue;
+                        }
+                    } else {
+                        // Start timeout tracking if not already started
+                        if (ackWaitStartTime === null) {
+                            ackWaitStartTime = Date.now();
+                            log(`DEBUG: Waiting for complete ACK packet (have ${receiveBuffer.length}/9 bytes)`, 'rx');
+                        }
+
+                        // Check if timeout exceeded
+                        const waitTime = Date.now() - ackWaitStartTime;
+                        if (waitTime > ACK_TIMEOUT_MS) {
+                            log(`DEBUG: ACK timeout after ${waitTime}ms, discarding incomplete packet`, 'error');
+                            receiveBuffer = receiveBuffer.slice(1);
+                            ackWaitStartTime = null;
+                            continue;
+                        }
+
+                        // Wait for more data
+                        break;
+                    }
+                }
+
+                // Check for DataPacket (0xEB 0x92) - NOT COBS encoded
+                if (receiveBuffer[0] === 0xEB && receiveBuffer[1] === 0x92) {
+                    if (receiveBuffer.length >= 209) {
+                        // Skip CRC for maximum speed - set to false to enable CRC validation
+                        const dataPacket = parseDataPacket(receiveBuffer.slice(0, 209), true);
+                        if (dataPacket) {
+                            displayDataPacket(dataPacket);
+                            receiveBuffer = receiveBuffer.slice(209);
+                            continue;
+                        }
+                    } else {
+                        // Wait for more data
+                        break;
+                    }
+                }
+
+                // No valid packet header found, collect and print unknown bytes
+                let unknownBytes = [];
+                while (receiveBuffer.length > 0 &&
+                       !(receiveBuffer[0] === 0xEB && receiveBuffer.length >= 2 &&
+                         (receiveBuffer[1] === 0x91 || receiveBuffer[1] === 0x92))) {
+                    unknownBytes.push(receiveBuffer[0]);
+                    receiveBuffer = receiveBuffer.slice(1);
+
+                    // Limit batch size to prevent infinite loop
+                    if (unknownBytes.length >= 100) break;
+                }
+
+                if (unknownBytes.length > 0) {
+                    log(`Unknown bytes (${unknownBytes.length}): ${bytesToHex(new Uint8Array(unknownBytes))}`, 'rx');
+                }
+            }
+
+            // Limit buffer size to prevent memory issues
+            if (receiveBuffer.length > 10000) {
+                receiveBuffer = receiveBuffer.slice(-1000);
+            }
+        }
+
+        // Display parsed AckPacket
+        function displayAckPacket(packet) {
+            const cmdNames = {
+                0x01: 'Turn On Camera',
+                0x02: 'Turn Off Camera',
+                0x03: 'Take Photo',
+                0x04: 'Send Data Back',
+                0xFF: 'Ignore'
+            };
+            const cmdName = cmdNames[packet.cmd] || `Unknown (0x${packet.cmd.toString(16).padStart(2, '0')})`;
+
+            // Concise ACK display
+            const crcStatus = packet.crcValid ? 'OK' : 'CRC_ERR!';
+
+            // For Turn On, Turn Off, and Take Photo - show reply
+            if (packet.cmd === 0x01 || packet.cmd === 0x02 || packet.cmd === 0x03) {
+                log(`Reply: ${cmdName} command acknowledged, Camera=${packet.cameraIndex}`, 'ack-packet');
+            } else {
+                log(`ACK: ${cmdName}, Camera=${packet.cameraIndex}, ImageSize=${packet.imageSize} bytes, CRC=${crcStatus}`, 'ack-packet');
+            }
+
+            // Reset image buffer for new image if this is a photo/data command
+            if (packet.cmd === 0x03 || packet.cmd === 0x04) {
+                totalImageSize = packet.imageSize;
+                currentCameraIndex = packet.cameraIndex;
+                imageBuffer = [];
+                lastSequenceNumber = -1;
+                missingPackets = [];
+                if (packet.imageSize > 0) {
+                    log(`Starting image reception: ${totalImageSize} bytes`, 'info');
+                }
+            }
+        }
+
+        // Display parsed DataPacket - optimized for speed with single-line update
+        function displayDataPacket(packet) {
+            // Check for missing packets
+            if (lastSequenceNumber !== -1) {
+                const expectedSeq = lastSequenceNumber + 1;
+                if (packet.seq !== expectedSeq) {
+                    // Detect missing packets
+                    const missingStart = expectedSeq;
+                    const missingEnd = packet.seq - 1;
+                    for (let i = missingStart; i <= missingEnd; i++) {
+                        missingPackets.push(i);
+                    }
+                    log(`WARNING: Missing packet(s) detected! Expected seq=${expectedSeq}, got seq=${packet.seq}`, 'error');
+                }
+            }
+            lastSequenceNumber = packet.seq;
+
+            // Store payload data
+            imageBuffer.push({
+                seq: packet.seq,
+                data: packet.payload,
+                bytesLeft: packet.bytesLeft
+            });
+
+            // Update single line showing progress
+            const statusText = `DATA: Seq=${packet.seq}, BytesLeft=${packet.bytesLeft}, PayloadLen=${packet.payload.length}${missingPackets.length > 0 ? ` [MISSING: ${missingPackets.length}]` : ''}`;
+
+            if (!lastDataPacketLine) {
+                // Create the line if it doesn't exist
+                const timestamp = getTimestamp();
+                const line = document.createElement('div');
+                line.id = 'dataPacketStatus';
+
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'timestamp';
+                timeSpan.textContent = timestamp;
+
+                const msgSpan = document.createElement('span');
+                msgSpan.className = 'data-packet';
+                msgSpan.id = 'dataPacketMsg';
+                msgSpan.textContent = statusText;
+
+                line.appendChild(timeSpan);
+                line.appendChild(msgSpan);
+                terminal.appendChild(line);
+                lastDataPacketLine = msgSpan;
+            } else {
+                // Update existing line
+                lastDataPacketLine.textContent = statusText;
+            }
+
+            // Check if image is complete
+            if (packet.bytesLeft === 0) {
+                if (missingPackets.length > 0) {
+                    lastDataPacketLine.textContent += ` - COMPLETE (with ${missingPackets.length} missing packets!)`;
+                    lastDataPacketLine.style.color = '#ff9900';
+                } else {
+                    lastDataPacketLine.textContent += ' - COMPLETE!';
+                }
+                lastDataPacketLine = null;
+                reconstructImage();
+            }
+        }
+
+        // Reconstruct JPEG image from collected packets
+        function reconstructImage() {
+            if (imageBuffer.length === 0) {
+                log('No image data to reconstruct', 'error');
+                return;
+            }
+
+            // Report missing packets if any
+            if (missingPackets.length > 0) {
+                log(`Image has ${missingPackets.length} missing packet(s): ${missingPackets.slice(0, 10).join(', ')}${missingPackets.length > 10 ? '...' : ''}`, 'error');
+            }
+
+            // Sort packets by sequence number
+            imageBuffer.sort((a, b) => a.seq - b.seq);
+
+            // Verify sequence continuity after sorting
+            let continuityOk = true;
+            for (let i = 1; i < imageBuffer.length; i++) {
+                if (imageBuffer[i].seq !== imageBuffer[i - 1].seq + 1) {
+                    continuityOk = false;
+                    log(`Sequence gap detected: ${imageBuffer[i - 1].seq} -> ${imageBuffer[i].seq}`, 'error');
+                }
+            }
+
+            // Calculate total bytes
+            let totalBytes = 0;
+            for (const packet of imageBuffer) {
+                totalBytes += packet.data.length;
+            }
+
+            // Allocate buffer and copy data
+            const imageData = new Uint8Array(totalBytes);
+            let offset = 0;
+            for (const packet of imageBuffer) {
+                // Only copy actual image bytes (not padding)
+                const bytesToCopy = (packet.bytesLeft === 0)
+                    ? (packet.data.length - packet.bytesLeft) // Last packet may have less than 200 bytes
+                    : packet.data.length;
+
+                imageData.set(packet.data.slice(0, bytesToCopy), offset);
+                offset += bytesToCopy;
+            }
+
+            const statusMsg = `Image reconstruction: ${offset} bytes, ${imageBuffer.length} packets${missingPackets.length > 0 ? `, ${missingPackets.length} MISSING` : ', NO MISSING'}`;
+            log(statusMsg, missingPackets.length > 0 ? 'error' : 'info');
+
+            // Create blob and display image
+            const blob = new Blob([imageData], { type: 'image/jpeg' });
+            const url = URL.createObjectURL(blob);
+
+            const imageContainer = document.getElementById('imageContainer');
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = `Camera ${currentCameraIndex} - ${new Date().toLocaleTimeString()}`;
+            img.onload = () => {
+                log(`Image displayed successfully: ${img.naturalWidth}x${img.naturalHeight}`, 'info');
+            };
+            img.onerror = () => {
+                log('Failed to decode JPEG image', 'error');
+            };
+
+            // Clear previous images and show new one
+            imageContainer.innerHTML = '';
+            imageContainer.appendChild(img);
+
+            // Download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `camera_${currentCameraIndex}_${Date.now()}.jpg`;
+            downloadLink.textContent = 'Download Image';
+            downloadLink.style.display = 'block';
+            downloadLink.style.marginTop = '10px';
+            downloadLink.style.color = '#667eea';
+            imageContainer.appendChild(downloadLink);
+
+            // Clear buffer for next image
+            imageBuffer = [];
+        }
+
+        // Get current timestamp
+        function getTimestamp() {
+            const now = new Date();
+            return `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}]`;
+        }
+
+        // Flush batched logs to DOM
+        function flushLogQueue() {
+            if (logQueue.length === 0) return;
+
+            const fragment = document.createDocumentFragment();
+            for (const logItem of logQueue) {
+                const line = document.createElement('div');
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'timestamp';
+                timeSpan.textContent = logItem.timestamp;
+
+                const msgSpan = document.createElement('span');
+                msgSpan.className = logItem.className;
+                msgSpan.textContent = logItem.message;
+
+                line.appendChild(timeSpan);
+                line.appendChild(msgSpan);
+                fragment.appendChild(line);
+            }
+
+            terminal.appendChild(fragment);
+            terminal.scrollTop = terminal.scrollHeight;
+            logQueue = [];
+            logBatchTimeout = null;
+        }
+
+        // Log to terminal - batched for performance
+        function log(message, type = 'info') {
+            const timestamp = getTimestamp();
+            const className = type === 'rx' ? 'rx-data' :
+                             type === 'tx' ? 'tx-data' :
+                             type === 'error' ? 'error-data' :
+                             type === 'ack-packet' ? 'ack-packet' :
+                             type === 'data-packet' ? 'data-packet' :
+                             type === 'packet-info' ? 'packet-info' : '';
+
+            logQueue.push({ timestamp, message, className });
+
+            // For critical messages (errors, commands), flush immediately
+            if (type === 'error' || type === 'tx' || type === 'ack-packet') {
+                if (logBatchTimeout) {
+                    clearTimeout(logBatchTimeout);
+                }
+                flushLogQueue();
+            } else {
+                // Batch non-critical logs for performance
+                if (!logBatchTimeout) {
+                    logBatchTimeout = setTimeout(flushLogQueue, LOG_BATCH_INTERVAL);
+                }
+            }
+        }
+
+        // Update status
+        function updateStatus(connected) {
+            if (connected) {
+                status.textContent = 'Connected';
+                status.className = 'status connected';
+            } else {
+                status.textContent = 'Disconnected';
+                status.className = 'status disconnected';
+            }
+        }
+
+        // Connect to serial port
+        async function connect() {
+            try {
+                // Request a port
+                port = await navigator.serial.requestPort();
+
+                // Get settings
+                const baudRate = parseInt(document.getElementById('baudRate').value);
+
+                // Open the port with default settings
+                await port.open({
+                    baudRate: baudRate,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: 'none'
+                });
+
+                log(`Connected at ${baudRate} baud`, 'info');
+                updateStatus(true);
+
+                // Enable/disable buttons
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+
+                // Enable camera command buttons
+                document.getElementById('cmdBtn1').disabled = false;
+                document.getElementById('cmdBtn2').disabled = false;
+                document.getElementById('cmdBtn3').disabled = false;
+
+                // Disable settings while connected
+                document.getElementById('baudRate').disabled = true;
+
+                // Clear receive buffer
+                receiveBuffer = new Uint8Array(0);
+
+                // Start reading
+                readLoop();
+
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Read loop - reads raw bytes and parses packets
+        async function readLoop() {
+            keepReading = true;
+
+            try {
+                reader = port.readable.getReader();
+
+                while (keepReading && port.readable) {
+                    try {
+                        const { value, done } = await reader.read();
+                        if (done) {
+                            log('Connection closed by device', 'error');
+                            break;
+                        }
+                        if (value && value.length > 0) {
+                            // Process binary data
+                            processReceivedData(value);
+                        }
+                    } catch (error) {
+                        if (keepReading) {
+                            log(`Read error: ${error.message}`, 'error');
+                        }
+                        break;
+                    }
+                }
+            } catch (error) {
+                if (keepReading) {
+                    log(`Stream error: ${error.message}`, 'error');
+                }
+            } finally {
+                // Clean up reader
+                if (reader) {
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        // Ignore errors when releasing lock
+                    }
+                    reader = null;
+                }
+
+                // Auto-cleanup on unexpected disconnect
+                if (keepReading && port) {
+                    log('Unexpected disconnection - cleaning up...', 'error');
+                    await disconnect();
+                }
+            }
+        }
+
+        // Disconnect from serial port
+        async function disconnect() {
+            keepReading = false;
+
+            try {
+                // Cancel and release reader
+                if (reader) {
+                    try {
+                        await reader.cancel();
+                    } catch (e) {
+                        // Ignore cancel errors
+                    }
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        // Ignore release errors
+                    }
+                    reader = null;
+                }
+
+                // Close port
+                if (port) {
+                    try {
+                        await port.close();
+                    } catch (e) {
+                        // Ignore close errors
+                    }
+                    port = null;
+                }
+
+                log('Disconnected', 'info');
+                updateStatus(false);
+
+                // Enable/disable buttons
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+
+                // Disable camera command buttons
+                document.getElementById('cmdBtn1').disabled = true;
+                document.getElementById('cmdBtn2').disabled = true;
+                document.getElementById('cmdBtn3').disabled = true;
+
+                // Enable settings
+                document.getElementById('baudRate').disabled = false;
+
+            } catch (error) {
+                log(`Disconnect error: ${error.message}`, 'error');
+            }
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        clearBtn.addEventListener('click', () => {
+            terminal.innerHTML = '';
+        });
+
+        // Check Web Serial API support
+        if (!('serial' in navigator)) {
+            log('Web Serial API not supported in this browser!', 'error');
+            log('Please use Chrome, Edge, or Opera browser.', 'error');
+            connectBtn.disabled = true;
+        }
+    </script>
+</body>
+</html>
